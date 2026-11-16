@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Door Dashboard</title>
+<style>
+  :root{
+    --bg:#0b0f17;--panel:#121826;--panel2:#0e1420;--border:#1f2937;--text:#e5e7eb;--muted:#94a3b8;
+    --accent:#6366f1;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b;--info:#38bdf8;
+  }
+  @media (prefers-color-scheme:light){
+    :root{--bg:#f3f4f8;--panel:#fff;--panel2:#f8f9fc;--border:#e2e5ec;--text:#111827;--muted:#64748b}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px}
+  .hidden{display:none!important}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  button{font:inherit;cursor:pointer}
+
+  header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:14px 24px;background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;margin-right:auto}
+  .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:grid;place-items:center}
+  .pill{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:var(--panel);border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .dot.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .dot.bad{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+  .dot.warn{background:var(--warn)}
+  .btn{padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-weight:600}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+  .btn.ghost{background:transparent}
+  .btn.sm{padding:5px 10px;font-size:12px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+
+  .alert{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:16px 24px 0;padding:16px 20px;border-radius:16px;
+    background:linear-gradient(90deg,#b91c1c,#ef4444);color:#fff;animation:pulse 1.2s infinite}
+  .alert b{font-size:16px}
+  .alert .grow{flex:1;min-width:200px}
+  .alert .btn{background:#fff;color:#b91c1c;border:0}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.6)}50%{box-shadow:0 0 0 12px rgba(239,68,68,0)}}
+
+  main{max-width:1200px;margin:0 auto;padding:20px 24px 60px;display:grid;gap:18px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:860px){.grid3,.grid2{grid-template-columns:1fr}.grid3{grid-template-columns:repeat(3,1fr)}header,main{padding-left:14px;padding-right:14px}.alert{margin:12px 14px 0}}
+  @media (max-width:520px){.grid3{grid-template-columns:1fr}}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:20px}
+  .card h2{margin:0 0 4px;font-size:15px}
+  .card .sub{color:var(--muted);font-size:12.5px;margin-bottom:16px}
+  .stat{display:flex;flex-direction:column;gap:6px}
+  .stat .label{color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .stat .value{font-size:34px;font-weight:700;line-height:1}
+  .stat.ok .value{color:var(--ok)}.stat.bad .value{color:var(--warn)}.stat.forced .value{color:var(--bad)}
+
+  .doorbox{display:flex;align-items:center;gap:16px;padding:16px;border-radius:14px;background:var(--panel2);border:1px solid var(--border);margin-bottom:14px}
+  .doorbox .ico{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:rgba(148,163,184,.15)}
+  .doorbox.open .ico{background:rgba(245,158,11,.18);color:var(--warn)}
+  .doorbox.closed .ico{background:rgba(34,197,94,.15);color:var(--ok)}
+  .doorbox .t{font-size:12px;color:var(--muted)}.doorbox .v{font-size:18px;font-weight:700}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+
+  .scan{display:grid;place-items:center;text-align:center;gap:12px;padding:10px 0}
+  .ring{width:76px;height:76px;border-radius:50%;border:3px solid var(--accent);display:grid;place-items:center;position:relative}
+  .ring::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:3px solid var(--accent);animation:ping 1.4s infinite}
+  @keyframes ping{from{transform:scale(1);opacity:.7}to{transform:scale(1.5);opacity:0}}
+  input.text{width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font:inherit;outline:none}
+  input.text:focus{border-color:var(--accent)}
+  .uidtag{display:inline-block;padding:6px 10px;border-radius:8px;background:var(--panel2);border:1px solid var(--border);font-size:13px}
+  .note{padding:10px 12px;border-radius:10px;font-size:13px;background:rgba(245,158,11,.12);color:var(--warn)}
+
+  table{width:100%;border-collapse:collapse}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}
+  td{padding:12px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  .scroll{overflow-x:auto}
+  .empty{padding:26px;text-align:center;color:var(--muted)}
+
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .tab{padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--muted);font-weight:600;font-size:12px}
+  .tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .logs{display:flex;flex-direction:column;max-height:560px;overflow-y:auto}
+  .log{display:flex;gap:12px;align-items:flex-start;padding:12px 4px;border-bottom:1px solid var(--border)}
+  .log:last-child{border-bottom:0}
+  .log .ic{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:15px}
+  .log .body{flex:1;min-width:0}
+  .log .msg{line-height:1.4}
+  .log .meta{font-size:12px;color:var(--muted);margin-top:2px}
+  .log.forced{background:rgba(239,68,68,.07);border-radius:10px;padding-left:10px}
+  .c-ok{background:rgba(34,197,94,.15);color:var(--ok)}
+  .c-bad{background:rgba(245,158,11,.15);color:var(--warn)}
+  .c-forced{background:rgba(239,68,68,.18);color:var(--bad)}
+  .c-info{background:rgba(56,189,248,.15);color:var(--info)}
+  .c-muted{background:rgba(148,163,184,.15);color:var(--muted)}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+  .badge.red{background:rgba(239,68,68,.2);color:var(--bad)}
+  .badge.gray{background:rgba(148,163,184,.2);color:var(--muted)}
+
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;background:#111827;color:#fff;
+    padding:11px 18px;border-radius:12px;font-weight:600;transition:.25s;pointer-events:none;z-index:50;max-width:90vw}
+  #toast.show{opacity:1;transform:translateX(-50%)}
+  #toast.err{background:#b91c1c}
+</style>
+</head>
+<body>
+
+<div id="alertBar" class="alert hidden">
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+  <div class="grow">
+    <b>PERINGATAN: Pintu terbuka paksa!</b><br>
+    <span id="alertText"></span>
+  </div>
+  <button class="btn" id="ackBtn">Tandai sudah ditangani</button>
+</div>
+
+<header>
+  <div class="brand">
+    <div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+    Smart Door
+  </div>
+  <span class="pill"><span class="dot" id="dMqtt"></span><span id="tMqtt">Broker</span></span>
+  <span class="pill"><span class="dot" id="dDev"></span><span id="tDev">ESP32</span></span>
+  <button class="btn sm ghost" id="notifBtn" title="Aktifkan notifikasi browser">🔔 Notifikasi</button>
+  <form method="POST" action="/logout" style="margin:0"><button class="btn sm" type="submit">Keluar</button></form>
+</header>
+
+<main>
+  <section class="grid3">
+    <div class="card stat ok"><span class="label">Akses diterima hari ini</span><span class="value" id="sGranted">0</span></div>
+    <div class="card stat bad"><span class="label">Akses ditolak hari ini</span><span class="value" id="sDenied">0</span></div>
+    <div class="card stat forced"><span class="label">Pintu paksa hari ini</span><span class="value" id="sForced">0</span></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>Kontrol Pintu</h2>
+      <div class="sub">Status realtime dari sensor IR dan relay.</div>
+      <div class="doorbox" id="doorBox">
+        <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17"/><circle cx="14.5" cy="12" r="1"/></svg></div>
+        <div><div class="t">Kondisi pintu</div><div class="v" id="doorText">—</div></div>
+        <div style="margin-left:auto;text-align:right"><div class="t">Relay / kunci</div><div class="v" id="relayText">—</div></div>
+      </div>
+      <div class="row">
+        <button class="btn primary" onclick="relay('ON')">Buka kunci</button>
+        <button class="btn" onclick="relay('OFF')">Kunci pintu</button>
+      </div>
+      <div class="sub" style="margin:12px 0 0">Kunci otomatis menutup sendiri setelah beberapa detik.</div>
+    </div>
+
+    <div class="card">
+      <h2>Registrasi Kartu RFID</h2>
+      <div class="sub">Scan kartu baru pada reader, lalu beri nama.</div>
+      <div id="regBox"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Kartu Terdaftar <span class="badge gray" id="cardCount">0</span></h2>
+    <div class="sub">Perubahan otomatis disinkronkan ke ESP32.</div>
+    <div class="scroll"><table>
+      <thead><tr><th>Nama</th><th>UID</th><th>Akses terakhir</th><th></th></tr></thead>
+      <tbody id="cardRows"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card">
+    <h2>Riwayat Aktivitas</h2>
+    <div class="sub">Siapa mengakses dan bagaimana kondisi pintu.</div>
+    <div class="tabs" id="tabs">
+      <button class="tab on" data-f="all">Semua</button>
+      <button class="tab" data-f="access">Akses kartu</button>
+      <button class="tab" data-f="door">Pintu</button>
+      <button class="tab" data-f="alert">Peringatan</button>
+      <button class="tab" data-f="system">Sistem</button>
+    </div>
+    <div class="logs" id="logList"></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let state = null, cards = [], logs = [], filter = "all", clockOffset = 0, regKey = "";
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtTime = (ts) => new Date(ts).toLocaleString("id-ID", {day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).replace(/\./g, ":");
+
+async function api(path, method = "GET", body) {
+  const r = await fetch(path, {
+    method, credentials: "same-origin",
+    headers: body ? {"Content-Type":"application/json"} : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (r.status === 401) { location.href = "/login"; throw new Error("Sesi berakhir"); }
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "Terjadi kesalahan");
+  return d;
+}
+
+let toastTimer;
+function toast(msg, isErr) {
+  const t = $("#toast");
+  t.textContent = msg; t.className = "show" + (isErr ? " err" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (t.className = ""), 2800);
+}
+const run = async (fn) => { try { const d = await fn(); if (d?.message) toast(d.message); } catch (e) { toast(e.message, true); } };
+
+/* ---------- Render: status ---------- */
+function renderState() {
+  if (!state) return;
+  clockOffset = state.serverTime - Date.now();
+
+  $("#dMqtt").className = "dot " + (state.mqttConnected ? "ok" : "bad");
+  $("#tMqtt").textContent = state.mqttConnected ? "Broker terhubung" : "Broker terputus";
+  const dev = state.device;
+  $("#dDev").className = "dot " + (dev === "ONLINE" ? "ok" : dev === "OFFLINE" ? "bad" : "warn");
+  $("#tDev").textContent = dev === "ONLINE" ? "ESP32 online" : dev === "OFFLINE" ? "ESP32 offline" : "ESP32 ?";
+
+  $("#sGranted").textContent = state.stats.granted;
+  $("#sDenied").textContent = state.stats.denied;
+  $("#sForced").textContent = state.stats.forced;
+
+  const box = $("#doorBox");
+  box.className = "doorbox " + (state.door === "OPEN" ? "open" : state.door === "CLOSED" ? "closed" : "");
+  $("#doorText").textContent = state.door === "OPEN" ? "Terbuka" : state.door === "CLOSED" ? "Tertutup" : "Tidak diketahui";
+  $("#relayText").textContent = state.relay === "ON" ? "Terbuka (ON)" : state.relay === "OFF" ? "Terkunci" : "—";
+
+  renderAlert();
+  renderRegister();
+}
+
+function renderAlert() {
+  const unack = logs.filter((l) => l.type === "FORCED_OPEN" && !l.ack);
+  const show = (state && state.unackAlerts > 0) || unack.length > 0;
+  $("#alertBar").classList.toggle("hidden", !show);
+  if (show) {
+    const n = state ? state.unackAlerts : unack.length;
+    const last = unack[0];
+    $("#alertText").textContent = (last ? "Terakhir: " + fmtTime(last.ts) + " · " : "") + n + " kejadian belum ditangani";
+  }
+}
+
+/* ---------- Render: registrasi ---------- */
+function renderRegister() {
+  if (!state) return;
+  const r = state.registration;
+  const key = r.status + "|" + r.uid;
+  if (key === regKey) return;      // jangan render ulang saat user mengetik
+  regKey = key;
+  const box = $("#regBox");
+
+  if (r.status === "WAITING") {
+    box.innerHTML = `<div class="scan"><div class="ring"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
+      <div><b>Tempelkan kartu pada reader…</b><div class="sub" style="margin:4px 0 0">Sisa waktu <span id="cd">30</span> detik</div></div>
+      <button class="btn sm" onclick="regCancel()">Batal</button></div>`;
+  } else if (r.status === "SCANNED") {
+    box.innerHTML = `<div style="display:grid;gap:12px">
+      <div>Kartu terdeteksi:<br><span class="uidtag mono">${esc(r.uid)}</span></div>
+      <input class="text" id="regName" placeholder="Nama pemilik kartu" maxlength="40" autofocus>
+      <div class="row"><button class="btn primary" onclick="regSave('${esc(r.uid)}')">Simpan kartu</button><button class="btn" onclick="regCancel()">Batal</button></div></div>`;
+    setTimeout(() => $("#regName")?.focus(), 50);
+    $("#regName")?.addEventListener("keydown", (e) => e.key === "Enter" && regSave(r.uid));
+  } else {
+    let note = "";
+    if (r.status === "DUPLICATE") note = `<div class="note">Kartu <span class="mono">${esc(r.uid)}</span> sudah terdaftar atas nama <b>${esc(r.name)}</b>.</div>`;
+    if (r.status === "TIMEOUT") note = `<div class="note">Waktu habis, tidak ada kartu yang di-scan.</div>`;
+    box.innerHTML = `<div style="display:grid;gap:12px">${note}<div><button class="btn primary" onclick="regStart()">Mulai scan kartu</button></div></div>`;
+  }
+}
+setInterval(() => {
+  const el = $("#cd");
+  if (el && state?.registration.expiresAt) {
+    el.textContent = Math.max(0, Math.ceil((state.registration.expiresAt - (Date.now() + clockOffset)) / 1000));
+  }
+}, 300);
+
+async function relay(command) {
+  return run(() => api("/api/relay", "POST", { command }));
+}
+
+async function relay(command) {
+  return run(() => api("/api/relay", "POST", { command }));
+}
+
+const regStart  = () => run(() => api("/api/register/start", "POST"));
+const regCancel = () => run(() => api("/api/register/cancel", "POST"));
+const regSave   = (uid) => {
+  const name = $("#regName").value.trim();
+  if (!name) return toast("Nama wajib diisi", true);
+  run(() => api("/api/cards", "POST", { uid, name }));
+};
+
+/* ---------- Render: kartu ---------- */
+function renderCards() {
+  $("#cardCount").textContent = cards.length;
+  const body = $("#cardRows");
+  if (!cards.length) { body.innerHTML = `<tr><td colspan="4" class="empty">Belum ada kartu terdaftar.</td></tr>`; return; }
+
+  body.innerHTML = cards.map((c) => {
+    const last = logs.find((l) => l.type === "ACCESS_GRANTED" && l.uid === c.uid);
+    return `<tr>
+      <td><b>${esc(c.name)}</b></td>
+      <td class="mono">${esc(c.uid)}</td>
+      <td>${last ? fmtTime(last.ts) : '<span style="color:var(--muted)">Belum pernah</span>'}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn sm" data-act="rename" data-uid="${esc(c.uid)}">Ubah nama</button>
+        <button class="btn sm danger" data-act="del" data-uid="${esc(c.uid)}">Hapus</button>
+      </td></tr>`;
+  }).join("");
+}
+
+$("#cardRows").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const uid = b.dataset.uid, card = cards.find((c) => c.uid === uid);
+  if (b.dataset.act === "rename") {
+    const name = prompt("Nama baru untuk kartu ini:", card?.name || "");
+    if (name && name.trim()) run(() => api("/api/cards/" + encodeURIComponent(uid), "PATCH", { name }));
+  } else if (confirm(`Hapus kartu ${card?.name}? Kartu ini tidak bisa lagi membuka pintu.`)) {
+    run(() => api("/api/cards/" + encodeURIComponent(uid), "DELETE"));
+  }
+});
+
+/* ---------- Render: riwayat ---------- */
+const GROUPS = {
+  access: ["ACCESS_GRANTED", "ACCESS_DENIED"],
+  door: ["DOOR_OPENED", "DOOR_CLOSED"],
+  alert: ["FORCED_OPEN"],
+  system: ["REMOTE_UNLOCK", "REMOTE_LOCK", "CARD_REGISTERED", "CARD_DELETED", "DEVICE_ONLINE", "DEVICE_OFFLINE"],
+};
+
+function describe(l) {
+  const who = l.name ? `<b>${esc(l.name)}</b>` : "";
+  const uid = l.uid ? ` <span class="mono" style="color:var(--muted)">${esc(l.uid)}</span>` : "";
+  switch (l.type) {
+    case "ACCESS_GRANTED": return { c: "c-ok", i: "✓", m: `${who || "Kartu"} menempelkan kartu — <b>akses diterima</b>${l.name ? "" : uid}` };
+    case "ACCESS_DENIED":  return { c: "c-bad", i: "✕", m: `Kartu tidak dikenal <b>ditolak</b>${uid}` };
+    case "DOOR_OPENED":    return { c: "c-info", i: "↗", m: l.via === "DASHBOARD" ? `Pintu terbuka setelah dibuka dari <b>dashboard</b>` : `Pintu terbuka — dibuka oleh ${who || "kartu" + uid}` };
+    case "DOOR_CLOSED":    return { c: "c-muted", i: "↙", m: "Pintu tertutup" };
+    case "FORCED_OPEN":    return { c: "c-forced", i: "!", m: `<b>Pintu terbuka paksa</b> tanpa akses yang sah ${l.ack ? '<span class="badge gray">ditangani</span>' : '<span class="badge red">baru</span>'}` };
+    case "REMOTE_UNLOCK":  return { c: "c-info", i: "⚿", m: "Kunci dibuka dari dashboard" };
+    case "REMOTE_LOCK":    return { c: "c-muted", i: "⚿", m: "Kunci dikunci dari dashboard" };
+    case "CARD_REGISTERED":return { c: "c-ok", i: "+", m: `Kartu baru didaftarkan: ${who}${uid}` };
+    case "CARD_DELETED":   return { c: "c-bad", i: "−", m: `Kartu dihapus: ${who}${uid}` };
+    case "DEVICE_ONLINE":  return { c: "c-ok", i: "●", m: "ESP32 online" };
+    case "DEVICE_OFFLINE": return { c: "c-forced", i: "●", m: "ESP32 offline" };
+    default: return { c: "c-muted", i: "•", m: esc(l.type) };
+  }
+}
+
+function renderLogs() {
+  const list = logs.filter((l) => filter === "all" || GROUPS[filter].includes(l.type)).slice(0, 200);
+  $("#logList").innerHTML = list.length ? list.map((l) => {
+    const d = describe(l);
+    return `<div class="log ${l.type === "FORCED_OPEN" ? "forced" : ""}"><div class="ic ${d.c}">${d.i}</div>
+      <div class="body"><div class="msg">${d.m}</div><div class="meta">${fmtTime(l.ts)}</div></div></div>`;
+  }).join("") : `<div class="empty">Belum ada aktivitas.</div>`;
+}
+
+$("#tabs").addEventListener("click", (e) => {
+  const t = e.target.closest(".tab"); if (!t) return;
+  filter = t.dataset.f;
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === t));
+  renderLogs();
+});
+
+/* ---------- Peringatan: suara + notifikasi ---------- */
+function alarm(l) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.25, 0.5].forEach((t) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "square"; o.frequency.value = 880; g.gain.value = 0.08;
+      o.connect(g); g.connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.15);
+    });
+  } catch {}
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification("⚠ Pintu terbuka paksa!", { body: "Terdeteksi pukul " + fmtTime(l.ts) });
+  }
+}
+$("#notifBtn").onclick = async () => {
+  if (!("Notification" in window)) return toast("Browser tidak mendukung notifikasi", true);
+  const p = await Notification.requestPermission();
+  toast(p === "granted" ? "Notifikasi diaktifkan" : "Notifikasi ditolak", p !== "granted");
+};
+$("#ackBtn").onclick = () => run(() => api("/api/alerts/ack", "POST"));
+
+/* ---------- Data & realtime ---------- */
+async function loadAll() {
+  [state, cards, logs] = await Promise.all([api("/api/state"), api("/api/cards"), api("/api/logs?limit=500")]);
+  regKey = "";
+  renderState(); renderCards(); renderLogs();
+}
+
+function connectStream() {
+  const es = new EventSource("/api/stream");
+  es.addEventListener("state", (e) => { state = JSON.parse(e.data); renderState(); });
+  es.addEventListener("cards", (e) => { cards = JSON.parse(e.data); renderCards(); });
+  es.addEventListener("log", (e) => {
+    const l = JSON.parse(e.data);
+    logs.unshift(l); if (logs.length > 500) logs.pop();
+    renderLogs(); renderCards(); renderAlert();
+    if (l.type === "FORCED_OPEN") alarm(l);
+  });
+  es.addEventListener("ack", () => { logs.forEach((l) => l.type === "FORCED_OPEN" && (l.ack = true)); renderLogs(); renderAlert(); });
+  es.onopen = () => loadAll().catch(() => {});
+}
+
+loadAll().then(connectStream).catch(() => {});
+setInterval(() => api("/api/state").then((s) => { state = s; renderState(); }).catch(() => {}), 30000); // juga mendeteksi sesi habis
+</script>
+</body>
+</html>
